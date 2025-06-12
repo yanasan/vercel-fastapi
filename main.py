@@ -5,6 +5,7 @@ from typing import List, Optional
 import json
 from datetime import datetime
 
+# FastAPIアプリケーション作成
 app = FastAPI(title="Vercel FastAPI Sample", version="1.0.0")
 
 # CORS設定

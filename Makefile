@@ -18,6 +18,12 @@ help:
 # 依存関係のインストール
 install:
 	@echo "📦 依存関係をインストールしています..."
+	pip install -r requirements-dev.txt
+	@echo "✅ インストール完了!"
+
+# Vercel用の軽量インストール
+install-prod:
+	@echo "📦 Vercel用依存関係をインストールしています..."
 	pip install -r requirements.txt
 	@echo "✅ インストール完了!"
 
