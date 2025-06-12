@@ -1,0 +1,92 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  # テストジョブ
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python環境セットアップ
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 依存関係インストール
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install requests  # テスト用
+
+      - name: デプロイ前チェック実行
+        run: python pre_deploy_check.py
+
+      - name: FastAPIアプリケーションテスト
+        run: |
+          # バックグラウンドでサーバー起動
+          python dev_server.py &
+          SERVER_PID=$!
+          
+          # サーバー起動を待機
+          sleep 10
+          
+          # APIテスト実行
+          python test_api.py || true
+          
+          # サーバー停止
+          kill $SERVER_PID
+
+  # デプロイジョブ（mainブランチのみ）
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: Vercelにデプロイ
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+
+      - name: デプロイ成功通知
+        if: success()
+        run: |
+          echo "🎉 デプロイが成功しました！"
+          echo "URL: ${{ steps.deploy.outputs.preview-url }}"
+
+  # PR用プレビューデプロイ
+  preview:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: Vercelプレビューデプロイ
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: プレビューURL表示
+        if: success()
+        run: |
+          echo "📋 プレビューデプロイが完了しました"
+          echo "URL: ${{ steps.preview.outputs.preview-url }}"

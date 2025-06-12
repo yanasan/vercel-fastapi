@@ -1,17 +1,19 @@
 # FastAPI 開発用Makefile
 
-.PHONY: help install dev prod test clean docs
+.PHONY: help install dev prod test clean docs setup-github
 
 # デフォルトターゲット
 help:
 	@echo "利用可能なコマンド:"
-	@echo "  make install    - 依存関係をインストール"
-	@echo "  make dev        - 開発サーバーを起動"
-	@echo "  make prod       - 本番サーバーを起動"
-	@echo "  make test       - APIテストを実行"
-	@echo "  make docs       - ドキュメントを開く"
-	@echo "  make clean      - キャッシュファイルを削除"
-	@echo "  make deploy     - Vercelにデプロイ"
+	@echo "  make install      - 依存関係をインストール"
+	@echo "  make dev          - 開発サーバーを起動"
+	@echo "  make prod         - 本番サーバーを起動"
+	@echo "  make test         - APIテストを実行"
+	@echo "  make docs         - ドキュメントを開く"
+	@echo "  make clean        - キャッシュファイルを削除"
+	@echo "  make deploy       - Vercelにデプロイ"
+	@echo "  make setup-github - GitHub Actions設定ガイドを表示"
+	@echo "  make git-push     - GitHubにプッシュ（自動デプロイ実行）"
 
 # 依存関係のインストール
 install:
@@ -51,3 +53,16 @@ deploy:
 	@echo "🚀 Vercelにデプロイします..."
 	chmod +x deploy.sh
 	./deploy.sh
+
+# GitHub Actions設定ガイド表示
+setup-github:
+	@echo "🔧 GitHub Actions設定ガイド:"
+	@cat GITHUB_ACTIONS_SETUP.md
+
+# GitHubにプッシュ（自動デプロイ実行）
+git-push:
+	@echo "💾 GitHubにプッシュして自動デプロイを実行します..."
+	git add .
+	@read -p "コミットメッセージを入力: " msg; git commit -m "$msg"
+	git push origin main
+	@echo "✅ プッシュ完了！GitHub Actionsが自動でデプロイを実行します。"

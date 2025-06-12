@@ -30,6 +30,8 @@ Vercel上で動作するFastAPIサンプルアプリケーションです。
 
 ## デプロイ方法
 
+### 方法1: 手動デプロイ（Vercel CLI）
+
 1. Vercel CLIをインストール:
 ```bash
 npm i -g vercel
@@ -44,6 +46,29 @@ cd vercel_fastapi
 ```bash
 vercel
 ```
+
+### 方法2: GitHub Actions による自動デプロイ（推奨）
+
+1. **GitHub Secrets の設定**:
+   - `GITHUB_ACTIONS_SETUP.md` を参照して必要なシークレットを設定
+
+2. **自動デプロイの有効化**:
+```bash
+# GitHubにプッシュするだけで自動デプロイ
+git add .
+git commit -m "Deploy to production"
+git push origin main
+```
+
+3. **利用可能なワークフロー**:
+   - **deploy.yml**: フル機能版（テスト + デプロイ + プレビュー）
+   - **simple-deploy.yml**: シンプル版（デプロイのみ）
+
+### 方法3: Vercel Dashboard（GUI）
+
+1. **https://vercel.com** でリポジトリを選択
+2. **Deploy** ボタンをクリック
+3. 自動で設定とデプロイが実行される
 
 ## ローカル実行
 
