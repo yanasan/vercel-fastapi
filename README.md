@@ -12,99 +12,34 @@ Vercel上で動作するFastAPIサンプルアプリケーションです。
 
 ## API エンドポイント
 
-### 基本
 - `GET /` - API情報とエンドポイント一覧
 - `GET /health` - ヘルスチェック
 - `GET /time` - 現在時刻取得
-- `GET /stats` - 統計情報
-
-### ユーザー管理
 - `GET /users` - ユーザー一覧取得
 - `GET /users/{user_id}` - 特定ユーザー取得
 - `POST /users` - ユーザー作成
 - `DELETE /users/{user_id}` - ユーザー削除
-
-### メッセージ
 - `GET /messages` - メッセージ一覧取得
 - `POST /messages` - メッセージ作成
+- `GET /stats` - 統計情報
 
 ## デプロイ方法
 
-### 方法1: 手動デプロイ（Vercel CLI）
-
-1. Vercel CLIをインストール:
+### Vercel CLI
 ```bash
 npm i -g vercel
-```
-
-2. プロジェクトディレクトリに移動:
-```bash
-cd vercel_fastapi
-```
-
-3. Vercelにデプロイ:
-```bash
 vercel
 ```
 
-### 方法2: GitHub Actions による自動デプロイ（推奨）
-
-1. **GitHub Secrets の設定**:
-   - `GITHUB_ACTIONS_SETUP.md` を参照して必要なシークレットを設定
-
-2. **自動デプロイの有効化**:
-```bash
-# GitHubにプッシュするだけで自動デプロイ
-git add .
-git commit -m "Deploy to production"
-git push origin main
-```
-
-3. **利用可能なワークフロー**:
-   - **deploy.yml**: フル機能版（テスト + デプロイ + プレビュー）
-   - **simple-deploy.yml**: シンプル版（デプロイのみ）
-
-### 方法3: Vercel Dashboard（GUI）
-
-1. **https://vercel.com** でリポジトリを選択
-2. **Deploy** ボタンをクリック
-3. 自動で設定とデプロイが実行される
+### GitHub連携
+GitHubにプッシュすると自動デプロイされます。
 
 ## ローカル実行
 
-### 方法1: 開発用スクリプト（推奨）
 ```bash
-# 依存関係インストール
 pip install -r requirements.txt
-
-# 開発サーバー起動（自動リロード有効）
-python dev_server.py
-```
-
-### 方法2: Makefileを使用
-```bash
-make install  # 依存関係インストール
-make dev      # 開発サーバー起動
-make prod     # 本番サーバー起動
-make test     # APIテスト実行
-```
-
-### 方法3: 直接uvicornコマンド
-```bash
-# 開発モード（自動リロード有効）
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-
-# 本番モード（マルチワーカー）
-uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
-
-# デバッグモード
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload --log-level debug
-```
-
-### 方法4: 対話式起動スクリプト
-```bash
-chmod +x start.sh
-./start.sh
+pip install uvicorn
+uvicorn main:app --reload
 ```
 
 アプリケーションは http://localhost:8000 でアクセス可能です。
@@ -123,15 +58,3 @@ curl -X POST "https://your-app.vercel.app/users" \
 ```bash
 curl "https://your-app.vercel.app/users"
 ```
-
-### メッセージ作成
-```bash
-curl -X POST "https://your-app.vercel.app/messages?message=Hello World"
-```
-
-## 注意点
-
-- このサンプルではインメモリデータストレージを使用しているため、デプロイごとにデータはリセットされます
-- 本番環境では適切なデータベースを使用してください
-- CORS設定は開発用のため、本番環境では適切に制限してください
-# vercel-fastapi

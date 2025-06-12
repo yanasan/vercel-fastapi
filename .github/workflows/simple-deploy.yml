@@ -22,7 +22,7 @@ jobs:
       - name: 依存関係インストール
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
+          pip install -r requirements.txt
 
       - name: 基本テスト
         run: |
