@@ -4,7 +4,12 @@ from pydantic import BaseModel
 from typing import List, Optional
 import json
 from datetime import datetime
-from supabase_config import supabase, supabase_admin
+from supabase_config import supabase, supabase_admin, test_connection
+import logging
+
+# ログ設定
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # FastAPIアプリケーション作成
 app = FastAPI(title="Vercel FastAPI with Supabase", version="1.0.0")
@@ -69,17 +74,25 @@ async def health_check():
             "message": "Supabase environment variables not set"
         }
     
-    try:
-        # Supabase接続テスト
-        response = supabase.table("users").select("count", count="exact").execute()
-        db_status = "connected"
-        user_count = response.count if response.count is not None else 0
-    except Exception as e:
-        db_status = f"error: {str(e)}"
+    # 接続テスト実行
+    connection_ok = test_connection(supabase, max_retries=2)
+    
+    if connection_ok:
+        try:
+            # ユーザー数を取得
+            response = supabase.table("users").select("count", count="exact").execute()
+            user_count = response.count if response.count is not None else 0
+            db_status = "connected"
+        except Exception as e:
+            logger.error(f"Error fetching user count: {e}")
+            db_status = "connected_but_query_failed"
+            user_count = 0
+    else:
+        db_status = "connection_failed"
         user_count = 0
     
     return {
-        "status": "healthy",
+        "status": "healthy" if connection_ok else "degraded",
         "timestamp": datetime.now().isoformat(),
         "service": "fastapi-vercel-supabase",
         "database": db_status,
@@ -97,10 +110,16 @@ async def get_current_time():
 @app.get("/users", response_model=List[User])
 async def get_users():
     """全ユーザー取得"""
+    if supabase is None:
+        raise HTTPException(status_code=503, detail="Database not configured")
+    
     try:
+        logger.info("Fetching users from database")
         response = supabase.table("users").select("*").execute()
+        logger.info(f"Successfully fetched {len(response.data)} users")
         return response.data
     except Exception as e:
+        logger.error(f"Failed to fetch users: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch users: {str(e)}")
 
 @app.get("/users/{user_id}", response_model=User)
@@ -254,15 +273,30 @@ async def trigger_error():
 @app.get("/test-db")
 async def test_database_connection():
     """データベース接続テスト"""
+    if supabase is None:
+        return {
+            "status": "error",
+            "message": "Supabase client not initialized",
+            "timestamp": datetime.now().isoformat()
+        }
+    
     try:
-        response = supabase.table("users").select("count", count="exact").execute()
+        logger.info("Testing database connection...")
+        
+        # シンプルなクエリでテスト
+        response = supabase.from_("users").select("id").limit(1).execute()
+        
         return {
             "status": "success",
             "message": "Database connection successful",
-            "user_count": response.count or 0
+            "timestamp": datetime.now().isoformat(),
+            "test_query_result": "OK"
         }
     except Exception as e:
+        logger.error(f"Database connection test failed: {e}")
         return {
             "status": "error",
-            "message": f"Database connection failed: {str(e)}"
+            "message": f"Database connection failed: {str(e)}",
+            "timestamp": datetime.now().isoformat(),
+            "error_type": type(e).__name__
         }
