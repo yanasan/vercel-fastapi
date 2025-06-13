@@ -33,13 +33,15 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- トリガー作成
-CREATE TRIGGER IF NOT EXISTS update_users_updated_at 
+-- トリガー作成（IF NOT EXISTSは使用できないため、DROP IF EXISTSを使用）
+DROP TRIGGER IF EXISTS update_users_updated_at ON public.users;
+CREATE TRIGGER update_users_updated_at 
     BEFORE UPDATE ON public.users
     FOR EACH ROW 
     EXECUTE FUNCTION public.update_updated_at_column();
 
-CREATE TRIGGER IF NOT EXISTS update_messages_updated_at 
+DROP TRIGGER IF EXISTS update_messages_updated_at ON public.messages;
+CREATE TRIGGER update_messages_updated_at 
     BEFORE UPDATE ON public.messages
     FOR EACH ROW 
     EXECUTE FUNCTION public.update_updated_at_column();
