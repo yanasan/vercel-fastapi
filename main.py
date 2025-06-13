@@ -60,6 +60,15 @@ async def root():
 @app.get("/health")
 async def health_check():
     """ヘルスチェック（Supabase接続テスト含む）"""
+    if supabase is None:
+        return {
+            "status": "warning",
+            "timestamp": datetime.now().isoformat(),
+            "service": "fastapi-vercel-supabase",
+            "database": "not configured",
+            "message": "Supabase environment variables not set"
+        }
+    
     try:
         # Supabase接続テスト
         response = supabase.table("users").select("count", count="exact").execute()

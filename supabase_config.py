@@ -35,5 +35,11 @@ def get_supabase_admin_client() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 # グローバルクライアントインスタンス
-supabase: Client = get_supabase_client()
-supabase_admin: Client = get_supabase_admin_client()
+# 環境変数が設定されている場合のみ初期化
+try:
+    supabase: Client = get_supabase_client()
+    supabase_admin: Client = get_supabase_admin_client()
+except ValueError as e:
+    print(f"Warning: Supabase configuration error: {e}")
+    supabase = None
+    supabase_admin = None
