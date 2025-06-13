@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 import json
 from datetime import datetime
-from supabase_config import supabase, supabase_admin, test_connection
+from supabase_simple import supabase, supabase_admin, init_supabase, test_connection
 import logging
 
 # ログ設定
@@ -264,20 +264,26 @@ async def get_stats():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch stats: {str(e)}")
 
-@app.get("/debug-env")
-async def debug_environment():
-    """環境変数のデバッグ情報（本番環境では削除すること）"""
-    import os
-    
-    return {
-        "supabase_url_set": bool(os.getenv("SUPABASE_URL")),
-        "supabase_key_set": bool(os.getenv("SUPABASE_KEY")),
-        "supabase_service_key_set": bool(os.getenv("SUPABASE_SERVICE_KEY")),
-        "supabase_url_prefix": os.getenv("SUPABASE_URL", "")[:20] + "..." if os.getenv("SUPABASE_URL") else "Not set",
-        "environment": os.getenv("VERCEL_ENV", "unknown"),
-        "all_env_keys": [key for key in os.environ.keys() if "SUPABASE" in key],
-        "timestamp": datetime.now().isoformat(),
-    }
+@app.get("/init-supabase")
+async def manual_init_supabase():
+    """手動でSupabaseを初期化"""
+    try:
+        logger.info("Manual Supabase initialization requested")
+        success = init_supabase()
+        
+        return {
+            "status": "success" if success else "failed",
+            "supabase_initialized": supabase is not None,
+            "supabase_admin_initialized": supabase_admin is not None,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Manual initialization failed: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 # テスト用エンドポイント
 @app.get("/test-db")

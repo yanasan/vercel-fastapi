@@ -92,10 +92,18 @@ supabase = None
 supabase_admin = None
 
 try:
+    logger.info(f"Initializing Supabase client with URL: {SUPABASE_URL[:20]}...")
     supabase = get_supabase_client()
+    logger.info("Supabase client initialized successfully")
+    
+    logger.info("Initializing Supabase admin client...")
     supabase_admin = get_supabase_admin_client()
-    logger.info("Supabase clients initialized successfully")
+    logger.info("Supabase admin client initialized successfully")
+    
 except ValueError as e:
     logger.warning(f"Supabase configuration error: {e}")
 except Exception as e:
     logger.error(f"Unexpected error initializing Supabase clients: {e}")
+    logger.error(f"Error type: {type(e).__name__}")
+    import traceback
+    logger.error(f"Full traceback: {traceback.format_exc()}")
