@@ -1,12 +1,13 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 import json
 from datetime import datetime
+from supabase_config import supabase, supabase_admin
 
 # FastAPIアプリケーション作成
-app = FastAPI(title="Vercel FastAPI Sample", version="1.0.0")
+app = FastAPI(title="Vercel FastAPI with Supabase", version="1.0.0")
 
 # CORS設定
 app.add_middleware(
@@ -19,7 +20,7 @@ app.add_middleware(
 
 # データモデル
 class User(BaseModel):
-    id: int
+    id: Optional[int] = None
     name: str
     email: str
     created_at: Optional[str] = None
@@ -28,37 +29,52 @@ class UserCreate(BaseModel):
     name: str
     email: str
 
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+
 class Message(BaseModel):
+    id: Optional[int] = None
     message: str
-    timestamp: str
+    user_id: Optional[int] = None
+    created_at: Optional[str] = None
 
-# インメモリデータストレージ
-users_db = [
-    User(id=1, name="太郎", email="taro@example.com", created_at="2025-01-01T00:00:00"),
-    User(id=2, name="花子", email="hanako@example.com", created_at="2025-01-01T00:00:00"),
-]
-
-messages_db = []
+class MessageCreate(BaseModel):
+    message: str
+    user_id: Optional[int] = None
 
 @app.get("/")
 async def root():
     return {
-        "message": "Vercel FastAPI Sample API",
+        "message": "Vercel FastAPI with Supabase",
         "version": "1.0.0",
+        "database": "Supabase",
         "endpoints": {
             "users": "/users",
+            "messages": "/messages",
             "health": "/health",
-            "time": "/time",
-            "messages": "/messages"
+            "time": "/time"
         }
     }
 
 @app.get("/health")
 async def health_check():
+    """ヘルスチェック（Supabase接続テスト含む）"""
+    try:
+        # Supabase接続テスト
+        response = supabase.table("users").select("count", count="exact").execute()
+        db_status = "connected"
+        user_count = response.count if response.count is not None else 0
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+        user_count = 0
+    
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "service": "fastapi-vercel"
+        "service": "fastapi-vercel-supabase",
+        "database": db_status,
+        "user_count": user_count
     }
 
 @app.get("/time")
@@ -68,67 +84,176 @@ async def get_current_time():
         "timezone": "UTC"
     }
 
+# ユーザー関連エンドポイント
 @app.get("/users", response_model=List[User])
 async def get_users():
-    return users_db
+    """全ユーザー取得"""
+    try:
+        response = supabase.table("users").select("*").execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch users: {str(e)}")
 
 @app.get("/users/{user_id}", response_model=User)
 async def get_user(user_id: int):
-    user = next((user for user in users_db if user.id == user_id), None)
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
+    """特定ユーザー取得"""
+    try:
+        response = supabase.table("users").select("*").eq("id", user_id).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="User not found")
+        return response.data[0]
+    except Exception as e:
+        if "User not found" in str(e):
+            raise e
+        raise HTTPException(status_code=500, detail=f"Failed to fetch user: {str(e)}")
 
 @app.post("/users", response_model=User)
 async def create_user(user: UserCreate):
-    new_id = max([u.id for u in users_db], default=0) + 1
-    new_user = User(
-        id=new_id,
-        name=user.name,
-        email=user.email,
-        created_at=datetime.now().isoformat()
-    )
-    users_db.append(new_user)
-    return new_user
+    """ユーザー作成"""
+    try:
+        response = supabase.table("users").insert({
+            "name": user.name,
+            "email": user.email,
+            "created_at": datetime.now().isoformat()
+        }).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=400, detail="Failed to create user")
+        
+        return response.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create user: {str(e)}")
+
+@app.put("/users/{user_id}", response_model=User)
+async def update_user(user_id: int, user: UserUpdate):
+    """ユーザー更新"""
+    try:
+        # 更新データを準備
+        update_data = {}
+        if user.name is not None:
+            update_data["name"] = user.name
+        if user.email is not None:
+            update_data["email"] = user.email
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No update data provided")
+        
+        response = supabase.table("users").update(update_data).eq("id", user_id).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return response.data[0]
+    except Exception as e:
+        if "User not found" in str(e):
+            raise e
+        raise HTTPException(status_code=500, detail=f"Failed to update user: {str(e)}")
 
 @app.delete("/users/{user_id}")
 async def delete_user(user_id: int):
-    global users_db
-    user = next((user for user in users_db if user.id == user_id), None)
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    users_db = [u for u in users_db if u.id != user_id]
-    return {"message": f"User {user_id} deleted successfully"}
+    """ユーザー削除"""
+    try:
+        response = supabase.table("users").delete().eq("id", user_id).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return {"message": f"User {user_id} deleted successfully"}
+    except Exception as e:
+        if "User not found" in str(e):
+            raise e
+        raise HTTPException(status_code=500, detail=f"Failed to delete user: {str(e)}")
 
+# メッセージ関連エンドポイント
 @app.get("/messages", response_model=List[Message])
 async def get_messages():
-    return messages_db
+    """全メッセージ取得"""
+    try:
+        response = supabase.table("messages").select("*").execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch messages: {str(e)}")
+
+@app.get("/messages/{message_id}", response_model=Message)
+async def get_message(message_id: int):
+    """特定メッセージ取得"""
+    try:
+        response = supabase.table("messages").select("*").eq("id", message_id).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Message not found")
+        return response.data[0]
+    except Exception as e:
+        if "Message not found" in str(e):
+            raise e
+        raise HTTPException(status_code=500, detail=f"Failed to fetch message: {str(e)}")
 
 @app.post("/messages", response_model=Message)
-async def create_message(message: str):
-    new_message = Message(
-        message=message,
-        timestamp=datetime.now().isoformat()
-    )
-    messages_db.append(new_message)
-    return new_message
+async def create_message(message: MessageCreate):
+    """メッセージ作成"""
+    try:
+        response = supabase.table("messages").insert({
+            "message": message.message,
+            "user_id": message.user_id,
+            "created_at": datetime.now().isoformat()
+        }).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=400, detail="Failed to create message")
+        
+        return response.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create message: {str(e)}")
+
+@app.delete("/messages/{message_id}")
+async def delete_message(message_id: int):
+    """メッセージ削除"""
+    try:
+        response = supabase.table("messages").delete().eq("id", message_id).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Message not found")
+        
+        return {"message": f"Message {message_id} deleted successfully"}
+    except Exception as e:
+        if "Message not found" in str(e):
+            raise e
+        raise HTTPException(status_code=500, detail=f"Failed to delete message: {str(e)}")
 
 @app.get("/stats")
 async def get_stats():
-    return {
-        "total_users": len(users_db),
-        "total_messages": len(messages_db),
-        "server_time": datetime.now().isoformat(),
-        "api_version": "1.0.0"
-    }
+    """統計情報取得"""
+    try:
+        users_response = supabase.table("users").select("count", count="exact").execute()
+        messages_response = supabase.table("messages").select("count", count="exact").execute()
+        
+        return {
+            "total_users": users_response.count or 0,
+            "total_messages": messages_response.count or 0,
+            "server_time": datetime.now().isoformat(),
+            "api_version": "1.0.0",
+            "database": "Supabase"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch stats: {str(e)}")
 
 # エラーハンドリング用のエンドポイント
 @app.get("/error")
 async def trigger_error():
     raise HTTPException(status_code=500, detail="This is a test error")
 
-# Vercel用: この部分は不要（削除）
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run(app, host="0.0.0.0", port=8000)
+# テスト用エンドポイント
+@app.get("/test-db")
+async def test_database_connection():
+    """データベース接続テスト"""
+    try:
+        response = supabase.table("users").select("count", count="exact").execute()
+        return {
+            "status": "success",
+            "message": "Database connection successful",
+            "user_count": response.count or 0
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Database connection failed: {str(e)}"
+        }
