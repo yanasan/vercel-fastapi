@@ -285,10 +285,9 @@ async def manual_init_supabase():
             "timestamp": datetime.now().isoformat()
         }
 
-# テスト用エンドポイント
-@app.get("/test-db")
-async def test_database_connection():
-    """データベース接続テスト"""
+@app.get("/test-connection")
+async def test_connection_detailed():
+    """詳細な接続テスト"""
     if supabase is None:
         return {
             "status": "error",
@@ -296,23 +295,60 @@ async def test_database_connection():
             "timestamp": datetime.now().isoformat()
         }
     
+    tests = []
+    
+    # テスト 1: 基本接続
     try:
-        logger.info("Testing database connection...")
-        
-        # シンプルなクエリでテスト
-        response = supabase.from_("users").select("id").limit(1).execute()
-        
-        return {
+        response = supabase.table("users").select("count", count="exact").execute()
+        tests.append({
+            "test": "basic_connection",
             "status": "success",
-            "message": "Database connection successful",
-            "timestamp": datetime.now().isoformat(),
-            "test_query_result": "OK"
-        }
+            "result": f"Found {response.count} users"
+        })
     except Exception as e:
-        logger.error(f"Database connection test failed: {e}")
-        return {
+        tests.append({
+            "test": "basic_connection",
             "status": "error",
-            "message": f"Database connection failed: {str(e)}",
-            "timestamp": datetime.now().isoformat(),
+            "error": str(e),
             "error_type": type(e).__name__
-        }
+        })
+    
+    # テスト 2: シンプルクエリ
+    try:
+        response = supabase.from_("users").select("id").limit(1).execute()
+        tests.append({
+            "test": "simple_query",
+            "status": "success",
+            "result": f"Query successful, returned {len(response.data)} rows"
+        })
+    except Exception as e:
+        tests.append({
+            "test": "simple_query",
+            "status": "error",
+            "error": str(e),
+            "error_type": type(e).__name__
+        })
+    
+    # テスト 3: テーブル一覧
+    try:
+        # PostgreSQLのシステムテーブルからテーブル一覧を取得
+        response = supabase.rpc('get_table_list').execute()
+        tests.append({
+            "test": "table_list",
+            "status": "success",
+            "result": "Table list query successful"
+        })
+    except Exception as e:
+        tests.append({
+            "test": "table_list",
+            "status": "error",
+            "error": str(e),
+            "error_type": type(e).__name__
+        })
+    
+    return {
+        "overall_status": "success" if any(t["status"] == "success" for t in tests) else "failed",
+        "tests": tests,
+        "supabase_client_type": str(type(supabase)),
+        "timestamp": datetime.now().isoformat()
+    }
