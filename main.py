@@ -264,10 +264,20 @@ async def get_stats():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch stats: {str(e)}")
 
-# エラーハンドリング用のエンドポイント
-@app.get("/error")
-async def trigger_error():
-    raise HTTPException(status_code=500, detail="This is a test error")
+@app.get("/debug-env")
+async def debug_environment():
+    """環境変数のデバッグ情報（本番環境では削除すること）"""
+    import os
+    
+    return {
+        "supabase_url_set": bool(os.getenv("SUPABASE_URL")),
+        "supabase_key_set": bool(os.getenv("SUPABASE_KEY")),
+        "supabase_service_key_set": bool(os.getenv("SUPABASE_SERVICE_KEY")),
+        "supabase_url_prefix": os.getenv("SUPABASE_URL", "")[:20] + "..." if os.getenv("SUPABASE_URL") else "Not set",
+        "environment": os.getenv("VERCEL_ENV", "unknown"),
+        "all_env_keys": [key for key in os.environ.keys() if "SUPABASE" in key],
+        "timestamp": datetime.now().isoformat(),
+    }
 
 # テスト用エンドポイント
 @app.get("/test-db")
